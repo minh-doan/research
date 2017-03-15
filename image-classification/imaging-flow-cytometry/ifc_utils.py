@@ -3,6 +3,7 @@ import math
 import os
 import os.path
 import random
+import warnings
 
 import bioformats
 import bioformats.formatreader
@@ -11,9 +12,35 @@ import keras.utils.np_utils
 import numpy
 import skimage.exposure
 import skimage.io
-import skimage.io
 import skimage.measure
 import skimage.morphology
+
+
+def class_weights(directory, data):
+    """
+    Compute the contribution of data from each class.
+
+    :param directory: A directory containing class-labeled subdirectories containing .PNG images.
+    :param data: A dictionary of class labels to directories containing .CIF files of that class. E.g.,
+                     directory = {
+                         "abnormal": "data/raw/abnormal",
+                         "normal": "data/raw/normal"
+                     }
+    :return: A dictionary of class labels and contributions (as a decimal percentage), compatible with Keras.
+    """
+    counts = {}
+
+    for label_index, label in enumerate(sorted(data.keys())):
+        count = len(glob.glob("{}/{}/*.png".format(directory, label)))
+
+        counts[label_index] = count
+
+    total = max(sum(counts.values()), 1)
+
+    for label_index, count in counts.items():
+        counts[label_index] = count / total
+
+    return counts
 
 
 def parse(directory, data, channels):
@@ -48,6 +75,8 @@ def parse(directory, data, channels):
 
     javabridge.start_vm(class_path=bioformats.JARS)
 
+    warnings.filterwarnings("ignore")
+
     for label, data_directory in data.items():
         if not os.path.exists("{}/{}".format(directory, label)):
             os.makedirs("{}/{}".format(directory, label))
@@ -57,7 +86,7 @@ def parse(directory, data, channels):
         for file_id, filename in enumerate(filenames):
             _parse_cif(filename, label, file_id, directory, channels)
 
-    _print_weights(directory, data)
+    warnings.resetwarnings()
 
     # JVM can't be restarted once stopped.
     # Restart the notebook to run again.
@@ -178,17 +207,3 @@ def _parse_cif(filename, label, file_id, directory, channels):
                 rescaled,
                 plugin="imageio"
             )
-
-
-def _print_weights(directory, data):
-    counts = {}
-
-    for label in data.keys():
-        count = len(glob.glob("{}/{}/*.png".format(directory, label)))
-
-        counts[label] = count
-
-    total = max(sum(counts.values()), 1)
-
-    for label, count in counts.items():
-        print("{}: {}".format(label, count / total))
