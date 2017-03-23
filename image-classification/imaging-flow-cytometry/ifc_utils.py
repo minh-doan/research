@@ -93,7 +93,7 @@ def parse(directory, data, channels):
     javabridge.kill_vm()
 
 
-def split(directory, data, split):
+def split(directory, labels, split):
     """
     Shuffle and split image data into training/validation and test sets.
 
@@ -103,20 +103,20 @@ def split(directory, data, split):
         directory/training_x.npy
         directory/training_y.npy
 
-    :param directory: A directory containing class-labeled subdirectories containing .PNG images.
-    :param data: A dictionary of class labels to directories containing .CIF files of that class. E.g.,
-                     directory = {
-                         "abnormal": "data/raw/abnormal",
-                         "normal": "data/raw/normal"
-                     }
+    :param directory: A directory containing class-labeled subdirectories containing single-channel .PNG or .TIF images.
+    :param data: A list of class labels.
     :param split: Percentage of data (as a decimal) assigned to the training/validation set.
     """
     filenames = []
 
-    for label in data.keys():
-        label_filenames = glob.glob(os.path.join(directory, label, "*.png"))
+    labels = sorted(labels)
 
-        filenames = numpy.concatenate((filenames, label_filenames))
+    for label in labels:
+        label_pngs = glob.glob(os.path.join(directory, label, "*.png"))
+
+        label_tifs = glob.glob(os.path.join(directory, label, "*.tif"))
+
+        filenames = numpy.concatenate((filenames, label_pngs, label_tifs))
 
     random.shuffle(filenames)
 
@@ -125,8 +125,6 @@ def split(directory, data, split):
     training_filenames = filenames[:n_training]
 
     test_filenames = filenames[n_training:]
-
-    labels = sorted(data.keys())
 
     for name, filenames in [("training", training_filenames), ("test", test_filenames)]:
         x, y = _concatenate(filenames, labels)
